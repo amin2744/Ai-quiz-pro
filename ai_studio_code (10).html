@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="appHtml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI QUIZ PRO | Cinematic Edition</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #020408; --card: #0a0f18; --accent: #00d2ff;
+            --success: #00ff87; --error: #ff4b2b; --text: #e0e6ed; --nav-bg: #111827;
+        }
+
+        * { box-sizing: border-box; font-family: 'Cairo', 'Segoe UI', sans-serif; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        body { 
+            background: var(--bg); color: var(--text); margin: 0; 
+            padding-bottom: 80px; min-height: 100vh; overflow-x: hidden;
+            background: radial-gradient(circle at center, #0f172a 0%, #020408 100%);
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav { 
+            position: fixed; bottom: 0; width: 100%; height: 75px; 
+            background: var(--nav-bg); display: flex; justify-content: space-around; 
+            align-items: center; border-top: 1px solid rgba(255,255,255,0.05); z-index: 9999; 
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+        }
+        .nav-item { color: #4b5563; cursor: pointer; text-align: center; flex: 1; font-size: 0.7rem; }
+        .nav-item i { font-size: 1.6rem; display: block; margin-bottom: 4px; }
+        .nav-item.active { color: var(--accent); transform: translateY(-5px); text-shadow: 0 0 15px var(--accent); }
+
+        /* Interfaces */
+        .interface { display: none; padding: 25px; max-width: 500px; margin: auto; animation: slideUp 0.4s; }
+        .interface.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { 
+            background: var(--card); border-radius: 28px; padding: 25px; 
+            margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.05); 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6); position: relative; overflow: hidden;
+        }
+
+        /* Search Engine */
+        .search-box {
+            position: relative; margin-bottom: 15px;
+        }
+        .search-input { 
+            width: 100%; padding: 18px; background: #000; border: 1px solid var(--accent); 
+            border-radius: 18px; color: #fff; outline: none; box-shadow: 0 0 15px rgba(0,210,255,0.1);
+        }
+        .lang-list { max-height: 180px; overflow-y: auto; background: rgba(0,0,0,0.4); border-radius: 18px; border: 1px solid #222; }
+        .lang-item { padding: 15px; border-bottom: 1px solid #222; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .lang-item:hover { background: var(--accent); color: #000; }
+
+        /* Question UI */
+        .q-display { 
+            font-size: 1.4rem; text-align: center; min-height: 150px; 
+            display: flex; align-items: center; justify-content: center; 
+            font-weight: 800; line-height: 1.4; text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .options-container { display: grid; gap: 12px; margin-top: 20px; }
+        .opt-btn { 
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); 
+            padding: 20px; border-radius: 20px; color: #fff; cursor: pointer; 
+            text-align: inherit; font-size: 1.1rem; font-weight: 500;
+        }
+        .opt-btn:active { transform: scale(0.95); }
+        
+        .correct { 
+            background: linear-gradient(45deg, #00ff87, #00d2ff) !important; 
+            color: #000 !important; font-weight: 900; border: none; 
+            box-shadow: 0 0 30px var(--success);
+        }
+        .wrong { 
+            background: linear-gradient(45deg, #ff4b2b, #ff0055) !important; 
+            color: #fff !important; border: none; animation: shake 0.4s;
+            box-shadow: 0 0 30px var(--error);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* Stats */
+        .dna-progress { width: 100%; height: 10px; background: #111; border-radius: 20px; margin: 15px 0; overflow: hidden; border: 1px solid #222; }
+        #dna-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); width: 0%; box-shadow: 0 0 15px var(--accent); }
+
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid var(--accent);
+            border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;
+            margin: auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Correction Overlay */
+        #correction-msg {
+            position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+            background: var(--card); padding: 15px 25px; border-radius: 50px;
+            border: 2px solid var(--success); color: var(--success); font-weight: bold;
+            z-index: 10000; display: none; box-shadow: 0 0 40px rgba(0,0,0,0.9);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- التنبيه بالإجابة الصحيحة -->
+    <div id="correction-msg"></div>
+
+    <!-- واجهة الملف الشخصي -->
+    <div id="home" class="interface active">
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 4rem; margin-bottom: 10px; filter: drop-shadow(0 0 10px var(--accent));">🧬</div>
+            <h2 id="evo-lv">Level 1</h2>
+            <div class="dna-progress"><div id="dna-fill"></div></div>
+            <div style="display: flex; justify-content: space-around; margin-top: 20px; font-weight: bold;">
+                <span>🪙 <span id="coins-count">100</span></span>
+                <span>🏆 <span id="xp-count">0</span></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3><i class="fa fa-globe-americas"></i> لغة النظام / Language</h3>
+            <div class="search-box">
+                <input type="text" id="langInput" class="search-input" placeholder="Search Language..." onkeyup="searchLang()">
+            </div>
+            <div id="langResults" class="lang-list"></div>
+        </div>
+    </div>
+
+    <!-- واجهة اللعب -->
+    <div id="play" class="interface">
+        <div class="card">
+            <div id="qArea" class="q-display">...</div>
+        </div>
+        <div id="optionsArea" class="options-container"></div>
+    </div>
+
+    <!-- واجهة الترتيب -->
+    <div id="rank" class="interface">
+        <h2 style="text-align:center;"><i class="fa fa-award" style="color: gold;"></i> Global Ranking</h2>
+        <div id="leaderboard" class="card"></div>
+    </div>
+
+    <!-- شريط التنقل -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('home', this)"><i class="fa fa-user-ninja"></i><span>Home</span></div>
+        <div class="nav-item" onclick="switchTab('play', this)"><i class="fa fa-brain"></i><span>AI Play</span></div>
+        <div class="nav-item" onclick="switchTab('rank', this)"><i class="fa fa-crown"></i><span>Rank</span></div>
+    </nav>
+
+<script>
+    // --- بنك اللغات والأصوات ---
+    const SOUNDS = {
+        click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
+        correct: new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'),
+        wrong: new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3'),
+        evolve: new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3')
+    };
+
+    const LANGUAGES = [
+        { name: "العربية", code: "ar", dir: "rtl" },
+        { name: "English", code: "en", dir: "ltr" },
+        { name: "Français", code: "fr", dir: "ltr" },
+        { name: "Español", code: "es", dir: "ltr" },
+        { name: "Deutsch", code: "de", dir: "ltr" },
+        { name: "Русский", code: "ru", dir: "ltr" },
+        { name: "日本語", code: "ja", dir: "ltr" }
+    ];
+
+    let state = {
+        coins: parseInt(localStorage.getItem('aq_v2_coins')) || 100,
+        xp: parseInt(localStorage.getItem('aq_v2_xp')) || 0,
+        dna: parseInt(localStorage.getItem('aq_v2_dna')) || 0,
+        lang: JSON.parse(localStorage.getItem('aq_v2_lang')) || LANGUAGES[0]
+    };
+
+    function playSfx(key) {
+        SOUNDS[key].currentTime = 0;
+        SOUNDS[key].play().catch(e => console.log("Audio play blocked"));
+    }
+
+    function switchTab(tabId, el) {
+        playSfx('click');
+        document.querySelectorAll('.interface').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        el.classList.add('active');
+        if(tabId === 'play') automatedLoad();
+    }
+
+    function searchLang() {
+        const query = document.getElementById('langInput').value.toLowerCase();
+        const results = document.getElementById('langResults');
+        results.innerHTML = '';
+        LANGUAGES.filter(l => l.name.toLowerCase().includes(query)).forEach(l => {
+            const div = document.createElement('div');
+            div.className = 'lang-item';
+            div.innerHTML = `<span>${l.name}</span> <i class="fa fa-chevron-right"></i>`;
+            div.onclick = () => {
+                state.lang = l;
+                localStorage.setItem('aq_v2_lang', JSON.stringify(l));
+                playSfx('evolve');
+                location.reload();
+            };
+            results.appendChild(div);
+        });
+    }
+
+    // --- محرك الأتمتة والترجمة الذكية (AI Automa) ---
+    async function automatedLoad() {
+        const qArea = document.getElementById('qArea');
+        const optArea = document.getElementById('optionsArea');
+        qArea.innerHTML = '<div class="loader"></div>';
+        optArea.innerHTML = '';
+
+        try {
+            // 1. جلب سؤال إنجليزي من Open Trivia DB
+            const triviaRes = await fetch('https://opentdb.com/api.php?amount=1&type=multiple&encode=base64');
+            const triviaData = await triviaRes.json();
+            const rawQ = triviaData.results[0];
+
+            // فك التشفير
+            const questionEn = atob(rawQ.question);
+            const correctEn = atob(rawQ.correct_answer);
+            const incorrectEn = rawQ.incorrect_answers.map(ans => atob(ans));
+
+            // 2. الترجمة الآلية إلى لغة اللاعب
+            const targetLang = state.lang.code;
+            const translatedQ = await translateText(questionEn, targetLang);
+            const translatedCorrect = await translateText(correctEn, targetLang);
+            const translatedIncorrect = await Promise.all(incorrectEn.map(ans => translateText(ans, targetLang)));
+
+            displayQuestion(translatedQ, translatedCorrect, translatedIncorrect);
+        } catch (e) {
+            qArea.innerText = "Error accessing AI Cloud. Retrying...";
+            setTimeout(automatedLoad, 2000);
+        }
+    }
+
+    async function translateText(text, target) {
+        if(target === 'en') return text;
+        try {
+            const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${target}`);
+            const data = await res.json();
+            return data.responseData.translatedText;
+        } catch { return text; }
+    }
+
+    function displayQuestion(q, correct, incorrects) {
+        const qArea = document.getElementById('qArea');
+        const optArea = document.getElementById('optionsArea');
+        qArea.innerHTML = q;
+
+        let options = [...incorrects, correct].sort(() => Math.random() - 0.5);
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'opt-btn';
+            btn.innerHTML = opt;
+            btn.onclick = () => {
+                const btns = document.querySelectorAll('.opt-btn');
+                btns.forEach(b => b.style.pointerEvents = 'none');
+
+                if(opt === correct) {
+                    btn.classList.add('correct');
+                    playSfx('correct');
+                    state.coins += 15; state.xp += 25; state.dna += 10;
+                    updateStats();
+                    setTimeout(automatedLoad, 1500);
+                } else {
+                    btn.classList.add('wrong');
+                    playSfx('wrong');
+                    showCorrection(correct);
+                    btns.forEach(b => { if(b.innerHTML === correct) b.classList.add('correct'); });
+                    setTimeout(() => {
+                        document.getElementById('correction-msg').style.display = 'none';
+                        automatedLoad();
+                    }, 3000);
+                }
+            };
+            optArea.appendChild(btn);
+        });
+    }
+
+    function showCorrection(ans) {
+        const msg = document.getElementById('correction-msg');
+        const label = state.lang.code === 'ar' ? 'الإجابة الصحيحة: ' : 'Correct Answer: ';
+        msg.innerHTML = `<i class="fa fa-check-circle"></i> ${label} ${ans}`;
+        msg.style.display = 'block';
+    }
+
+    function updateStats() {
+        document.getElementById('coins-count').innerText = state.coins;
+        document.getElementById('xp-count').innerText = state.xp;
+        const currentDna = state.dna % 100;
+        document.getElementById('dna-fill').style.width = currentDna + "%";
+        document.getElementById('evo-lv').innerText = "Level " + (Math.floor(state.dna/100) + 1);
+        
+        localStorage.setItem('aq_v2_coins', state.coins);
+        localStorage.setItem('aq_v2_xp', state.xp);
+        localStorage.setItem('aq_v2_dna', state.dna);
+        
+        document.body.style.filter = `hue-rotate(${state.dna % 360}deg)`;
+    }
+
+    // التنفيذ الأولي
+    document.getElementById('appHtml').dir = state.lang.dir;
+    searchLang();
+    updateStats();
+</script>
+</body>
+</html>
